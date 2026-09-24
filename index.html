@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AppSheet Progress Bar Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --ink:#172033; --muted:#5a6579; --line:#dce1e9;
+  --accent:#0d6e62; --accent-ink:#ffffff; --field:#f8fafc; --focus:#1f8a7c;
+  --code-bg:#121a28; --code-ink:#d9e2f0; --code-str:#9fd8b8; --code-fn:#8fb8ff; --code-col:#ffcf8a;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0f141c; --surface:#171e29; --ink:#e7ecf3; --muted:#9aa6b8; --line:#2a3443;
+    --accent:#3fb6a5; --accent-ink:#06201c; --field:#111823; --focus:#5fd0bf; --code-bg:#0a0f16;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0f141c; --surface:#171e29; --ink:#e7ecf3; --muted:#9aa6b8; --line:#2a3443;
+  --accent:#3fb6a5; --accent-ink:#06201c; --field:#111823; --focus:#5fd0bf; --code-bg:#0a0f16;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px;line-height:1.5}
+.wrap{max-width:760px;margin:0 auto;padding:0 16px;padding-block:32px 56px;display:grid;gap:20px}
+h1{font-size:26px;line-height:1.2;margin:0;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--muted);margin:6px 0 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;display:grid;gap:16px}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:560px){.fields{grid-template-columns:1fr}}
+label{display:grid;gap:5px;font-size:13px;font-weight:500}
+.hint{font-weight:400;color:var(--muted);font-size:12px;margin:0}
+input,select{font:inherit;font-size:14px;width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--ink)}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.stage{background:var(--field);border:1px dashed var(--line);border-radius:10px;padding:20px 16px;display:grid;gap:10px;justify-items:center}
+.stage img{display:block;max-width:100%;height:auto}
+.out{background:var(--code-bg);border-radius:12px;overflow:hidden}
+.out-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px 10px 16px;border-bottom:1px solid #243044}
+.out-head span{color:#aab6c8;font-size:12px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.copy{font:inherit;font-weight:600;font-size:13px;border:0;border-radius:7px;padding:7px 14px;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.copy.done{background:#3a8f4f;color:#fff}
+pre{margin:0;padding:16px;overflow-x:auto;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12.5px;line-height:1.6;color:var(--code-ink)}
+pre .s{color:var(--code-str)} pre .f{color:var(--code-fn)} pre .c{color:var(--code-col)}
+.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px;color:var(--muted)}
+.steps b{color:var(--ink);font-weight:600}
+.colors{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:560px){.colors{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.picker{display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border:1px solid var(--line);border-radius:8px;background:var(--field)}
+.picker input{width:36px;height:30px;padding:0;border:0;background:transparent;cursor:pointer}
+.picker code{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;color:var(--muted)}
+.steps-box{display:grid;gap:10px}
+.step{display:grid;grid-template-columns:auto 90px auto 1fr auto;align-items:center;gap:8px;font-size:13px}
+.step input[type=number]{padding:7px 8px}
+.step .fixed{display:inline-block;width:90px;padding:7px 8px;color:var(--muted)}
+.icon-btn{font:inherit;font-size:16px;line-height:1;width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--muted);cursor:pointer}
+.icon-btn:hover{color:var(--ink)}
+.add-btn{justify-self:start;font:inherit;font-size:13px;font-weight:600;border:1px dashed var(--line);border-radius:8px;background:transparent;color:var(--accent);padding:7px 12px;cursor:pointer}
+.slider{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;font-size:13px;color:var(--muted);width:100%}
+.slider input{accent-color:var(--accent);padding:0;border:0;background:transparent}
+.slider output{font-family:"IBM Plex Mono",monospace;color:var(--ink);min-width:4ch;text-align:right}
+@media (max-width:480px){.step{grid-template-columns:auto 72px auto 1fr auto}.step .fixed{width:72px}}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;font-weight:600}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>AppSheet Progress Bar Generator</h1>
+    <p class="sub">Enter your column name, pick a style, and copy the formula into an Image virtual column.</p>
+  </header>
+
+  <section class="card">
+    <h2>Settings</h2>
+    <div class="fields">
+      <label style="grid-column:1/-1">Progress column name (Decimal type)
+        <input type="text" id="col" placeholder="e.g. Progress" value="Progress">
+        <span class="hint">The Decimal column that holds the progress, from 0 to 1 (0.75 = 75%).</span>
+      </label>
+      <label>Color style
+        <select id="mode">
+          <option value="auto">Changes with progress</option>
+          <option value="single">One color</option>
+        </select>
+      </label>
+      <label>Size
+        <select id="size">
+          <option value="200,20">Small</option>
+          <option value="300,30" selected>Medium</option>
+          <option value="400,40">Large</option>
+        </select>
+      </label>
+      <label>Shape
+        <select id="shape">
+          <option value="round">Rounded</option>
+          <option value="square">Square</option>
+        </select>
+      </label>
+      <label>Show percentage
+        <select id="label">
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </label>
+    </div>
+    <div class="steps-box" id="stepsBox">
+      <h2>Color steps</h2>
+      <div id="stepList"></div>
+      <button type="button" class="add-btn" id="addStep">+ Add color step</button>
+      <p class="hint">Each color is used from its % until the next step. Example: 0% red, 5% orange, 50% blue, 100% green.</p>
+    </div>
+    <div class="fields colors">
+      <label id="singleBox">Bar color<span class="picker"><input type="color" id="c0" value="#4caf50"><code></code></span></label>
+      <label>Background<span class="picker"><input type="color" id="track" value="#e0e0e0"><code></code></span></label>
+      <label id="textBox">Text color<span class="picker"><input type="color" id="tc" value="#000000"><code></code></span></label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Preview</h2>
+    <div class="stage">
+      <img id="mainImg" alt="Progress bar preview">
+      <div class="slider"><span>Test value</span><input type="range" id="test" min="0" max="100" value="65" aria-label="Test value in percent"><output id="testOut">65%</output></div>
+    </div>
+    <div class="stage" id="stage"></div>
+  </section>
+
+  <div class="out">
+    <div class="out-head"><span>Bar formula</span><button type="button" class="copy" data-target="barCode">Copy</button></div>
+    <pre id="barCode"></pre>
+  </div>
+
+  <section class="card">
+    <h2>How to use</h2>
+    <ol class="steps">
+      <li>In AppSheet go to <b>Data → Columns</b> and click <b>Add virtual column</b>.</li>
+      <li>Give it a new name, for example <b>Progress Bar</b>.</li>
+      <li>Paste the formula into <b>App formula</b> and set <b>Type</b> to <b>Image</b>.</li>
+      <li>Save. Add the column to your views if it doesn't show.</li>
+    </ol>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const clean = (s, d) => ((s||'').trim().replace(/^\[|\]$/g,'')) || d;
+  const enc = c => '%23' + c.slice(1);
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  function highlight(code){
+    let out='', i=0;
+    while(i<code.length){
+      const ch=code[i];
+      if(ch==='"'){
+        let j=i+1;
+        while(j<code.length){ if(code[j]==='"'){ if(code[j+1]==='"'){ j+=2; continue; } break; } j++; }
+        out+='<span class="s">'+esc(code.slice(i,j+1))+'</span>'; i=j+1; continue;
+      }
+      if(ch==='['){ const j=code.indexOf(']',i); out+='<span class="c">'+esc(code.slice(i,j+1))+'</span>'; i=j+1; continue; }
+      const m=code.slice(i).match(/^[A-Z_]+(?=\()/);
+      if(m){ out+='<span class="f">'+m[0]+'</span>'; i+=m[0].length; continue; }
+      out+=esc(ch); i++;
+    }
+    return out;
+  }
+
+  let steps = [{from:0,color:'#ff9800'},{from:50,color:'#2196f3'},{from:100,color:'#4caf50'}];
+
+  function readSteps(){
+    return steps.map(x=>({from:Math.max(0,Math.min(100,+x.from||0)), color:x.color})).sort((a,b)=>a.from-b.from);
+  }
+
+  function drawSteps(){
+    const list=$('stepList'); list.innerHTML='';
+    steps.forEach((st,i)=>{
+      const row=document.createElement('div'); row.className='step';
+      const first = i===0;
+      row.innerHTML = `<span>From</span>`+
+        (first ? `<span class="fixed">0</span>` : `<input type="number" min="1" max="100" value="${st.from}" aria-label="Start percent for step ${i+1}">`)+
+        `<span>%</span><span class="picker"><input type="color" value="${st.color}" aria-label="Color for step ${i+1}"><code></code></span>`+
+        (first ? `<span style="width:32px"></span>` : `<button type="button" class="icon-btn" aria-label="Remove step ${i+1}">×</button>`);
+      const num=row.querySelector('input[type=number]');
+      if(num){ num.addEventListener('input',()=>{ st.from=num.value; renderBar(); }); num.addEventListener('change',()=>{ steps=readSteps(); drawSteps(); renderBar(); }); }
+      const col=row.querySelector('input[type=color]');
+      col.addEventListener('input',()=>{ st.color=col.value; renderBar(); });
+      const del=row.querySelector('.icon-btn');
+      if(del) del.addEventListener('click',()=>{ steps.splice(i,1); drawSteps(); renderBar(); });
+      list.appendChild(row);
+    });
+    $('stepList').style.display='grid'; $('stepList').style.gap='8px';
+  }
+
+  function stepColor(sts, pct){
+    let c=sts[0].color;
+    sts.forEach(x=>{ if(pct>=x.from) c=x.color; });
+    return c;
+  }
+
+  function settings(){
+    const [w,h] = $('size').value.split(',').map(Number);
+    return {
+      col: clean($('col').value,'Progress'), mode:$('mode').value,
+      c0:$('c0').value, steps: readSteps(), track:$('track').value, tc:$('tc').value,
+      w, h, rx: $('shape').value==='round' ? h/2 : 0, label: $('label').value==='yes',
+      fs: Math.round(h*0.47)
+    };
+  }
+
+  function formula(s){
+    const V = `DECIMAL([${s.col}])`;
+    const L=[];
+    L.push(`"data:image/svg+xml;utf8,<svg xmlns=""http://www.w3.org/2000/svg"" width=""${s.w}"" height=""${s.h}"">",`);
+    L.push(`"<rect width=""${s.w}"" height=""${s.h}"" rx=""${s.rx}"" fill=""${enc(s.track)}""/>",`);
+    if(s.mode==='auto'){
+      L.push(`"<rect width=""", ROUND(${V} * ${s.w}), """ height=""${s.h}"" rx=""${s.rx}"" fill=""",`);
+      const rest = s.steps.slice(1).reverse();
+      if(rest.length===0){
+        L.push(`"${enc(s.steps[0].color)}",`);
+      } else {
+        const lines = rest.map(x=>`    ${V} >= ${+(x.from/100).toFixed(4)}, "${enc(x.color)}",`);
+        lines.push(`    TRUE, "${enc(s.steps[0].color)}"`);
+        L.push(`IFS(\n${lines.join('\n')}\n  ),`);
+      }
+      L.push(`"""/>",`);
+    } else {
+      L.push(`"<rect width=""", ROUND(${V} * ${s.w}), """ height=""${s.h}"" rx=""${s.rx}"" fill=""${enc(s.c0)}""/>",`);
+    }
+    if(s.label){
+      L.push(`"<text x=""${s.w/2}"" y=""${s.h/2}"" dominant-baseline=""central"" text-anchor=""middle"" font-family=""Arial"" font-size=""${s.fs}"" font-weight=""bold"" fill=""${enc(s.tc)}"">", ROUND(${V} * 100), "%25</text>",`);
+    }
+    L.push(`"</svg>"`);
+    return 'CONCATENATE(\n  ' + L.join('\n  ') + '\n)';
+  }
+
+  function svgFor(s, pct){
+    const fill = s.mode==='auto' ? stepColor(s.steps, pct) : s.c0;
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${s.w}" height="${s.h}">`+
+      `<rect width="${s.w}" height="${s.h}" rx="${s.rx}" fill="${s.track}"/>`+
+      `<rect width="${Math.round(pct/100*s.w)}" height="${s.h}" rx="${s.rx}" fill="${fill}"/>`;
+    if(s.label) svg += `<text x="${s.w/2}" y="${s.h/2}" dominant-baseline="central" text-anchor="middle" font-family="Arial" font-size="${s.fs}" font-weight="bold" fill="${s.tc}">${pct}%</text>`;
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg + '</svg>');
+  }
+
+  function renderBar(){
+    const s = settings();
+    $('singleBox').hidden = s.mode==='auto';
+    $('stepsBox').hidden = s.mode!=='auto';
+    const t=+$('test').value; $('testOut').textContent=t+'%'; $('mainImg').src=svgFor(s,t); $('mainImg').width=s.w;
+    $('textBox').hidden = !s.label;
+    document.querySelectorAll('.picker').forEach(el=>{ el.querySelector('code').textContent = el.querySelector('input').value.toUpperCase(); });
+    $('stage').innerHTML = [25,60,100].map(p=>`<img width="${s.w}" alt="Bar at ${p} percent" src="${svgFor(s,p)}">`).join('');
+    const f = formula(s);
+    $('barCode').dataset.raw = f;
+    $('barCode').innerHTML = highlight(f);
+  }
+
+  document.querySelectorAll('input,select').forEach(el=>{
+    el.addEventListener('input', renderBar); el.addEventListener('change', renderBar);
+  });
+
+  document.querySelectorAll('.copy').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const pre=$(btn.dataset.target), text=pre.dataset.raw;
+      const ok=()=>{ btn.textContent='Copied'; btn.classList.add('done'); setTimeout(()=>{ btn.textContent='Copy'; btn.classList.remove('done'); },1500); };
+      const fallback=()=>{ const r=document.createRange(); r.selectNodeContents(pre); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); btn.textContent='Press Ctrl+C'; setTimeout(()=>{ btn.textContent='Copy'; },2500); };
+      try{ navigator.clipboard.writeText(text).then(ok,fallback); }catch(e){ fallback(); }
+    });
+  });
+
+  $('addStep').addEventListener('click',()=>{
+    const sorted=readSteps(); let best=null, gap=0;
+    sorted.forEach((x,i)=>{ const next = i+1<sorted.length ? sorted[i+1].from : 100; if(next-x.from>gap){ gap=next-x.from; best=Math.round(x.from+(next-x.from)/2); } });
+    if(best===null || gap<2) return;
+    steps=sorted; steps.push({from:best, color:'#9c27b0'}); steps.sort((a,b)=>a.from-b.from); drawSteps(); renderBar();
+  });
+  drawSteps(); renderBar();
+})();
+</script>
+</body>
+</html>
