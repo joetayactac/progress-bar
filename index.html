@@ -37,7 +37,8 @@ label{display:grid;gap:5px;font-size:13px;font-weight:500}
 .hint{font-weight:400;color:var(--muted);font-size:12px;margin:0}
 input,select{font:inherit;font-size:14px;width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--ink)}
 input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-.stage{background:var(--field);border:1px dashed var(--line);border-radius:10px;padding:20px 16px;display:grid;gap:10px;justify-items:center}
+.stage{background:var(--field);border:1px dashed var(--line);border-radius:10px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.stage.row{flex-direction:row;flex-wrap:wrap;justify-content:center;gap:20px}
 .stage img{display:block;max-width:100%;height:auto}
 .out{background:var(--code-bg);border-radius:12px;overflow:hidden}
 .out-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px 10px 16px;border-bottom:1px solid #243044}
@@ -90,15 +91,19 @@ h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute
       </label>
       <label>Size
         <select id="size">
-          <option value="200,20">Small</option>
-          <option value="300,30" selected>Medium</option>
-          <option value="400,40">Large</option>
+          <option value="0.67">Small</option>
+          <option value="1" selected>Medium</option>
+          <option value="1.33">Large</option>
         </select>
       </label>
       <label>Shape
         <select id="shape">
-          <option value="round">Rounded</option>
-          <option value="square">Square</option>
+          <option value="round">Rounded bar</option>
+          <option value="square">Square bar</option>
+          <option value="thin">Thin line</option>
+          <option value="blocks">Blocks (10 segments)</option>
+          <option value="ring">Circle</option>
+          <option value="gauge">Half circle (gauge)</option>
         </select>
       </label>
       <label>Show percentage
@@ -203,59 +208,105 @@ h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute
     return c;
   }
 
+  const n = x => +(+x).toFixed(2);
+
   function settings(){
-    const [w,h] = $('size').value.split(',').map(Number);
     return {
-      col: clean($('col').value,'Progress'), mode:$('mode').value,
+      col: clean($('col').value,'Progress'), mode:$('mode').value, shape:$('shape').value,
       c0:$('c0').value, steps: readSteps(), track:$('track').value, tc:$('tc').value,
-      w, h, rx: $('shape').value==='round' ? h/2 : 0, label: $('label').value==='yes',
-      fs: Math.round(h*0.47)
+      k: +$('size').value, label: $('label').value==='yes'
     };
   }
 
-  function formula(s){
-    const V = `DECIMAL([${s.col}])`;
-    const L=[];
-    L.push(`"data:image/svg+xml;utf8,<svg xmlns=""http://www.w3.org/2000/svg"" width=""${s.w}"" height=""${s.h}"">",`);
-    L.push(`"<rect width=""${s.w}"" height=""${s.h}"" rx=""${s.rx}"" fill=""${enc(s.track)}""/>",`);
-    if(s.mode==='auto'){
-      L.push(`"<rect width=""", ROUND(${V} * ${s.w}), """ height=""${s.h}"" rx=""${s.rx}"" fill=""",`);
-      const rest = s.steps.slice(1).reverse();
-      if(rest.length===0){
-        L.push(`"${enc(s.steps[0].color)}",`);
+  function colorToken(s, V){
+    if(s.mode!=='auto') return {lit:s.c0};
+    const rest = s.steps.slice(1).reverse();
+    if(!rest.length) return {lit:s.steps[0].color};
+    const lines = rest.map(x=>`    ${V} >= ${+(x.from/100).toFixed(4)}, "${enc(x.color)}",`);
+    lines.push(`    TRUE, "${enc(s.steps[0].color)}"`);
+    return {f:`IFS(\n${lines.join('\n')}\n  )`, js:p=>stepColor(s.steps,p)};
+  }
+
+  function parts(s){
+    const V = `DECIMAL([${s.col}])`, k=s.k, P=[];
+    const lit = x => P.push({lit:x});
+    const ex = (f,js) => P.push({f,js});
+    const col = colorToken(s,V);
+    const pct = () => ex(`ROUND(${V} * 100)`, p=>p);
+    const txt = (x,y,fs,anchor) => `<text x="${n(x)}" y="${n(y)}" dominant-baseline="central" text-anchor="${anchor}" font-family="Arial" font-size="${n(fs)}" font-weight="bold" fill="${s.tc}">`;
+    const label = (x,y,fs,anchor) => { if(!s.label) return; lit(txt(x,y,fs,anchor)); pct(); lit('%</text>'); };
+    const sh=s.shape;
+
+    if(sh==='round' || sh==='square'){
+      const W=n(300*k), H=n(30*k), rx = sh==='round' ? n(H/2) : 0;
+      lit(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">`);
+      lit(`<rect width="${W}" height="${H}" rx="${rx}" fill="${s.track}"/>`);
+      lit('<rect width="'); ex(`ROUND(${V} * ${W})`, p=>Math.round(p/100*W)); lit(`" height="${H}" rx="${rx}" fill="`); P.push(col); lit('"/>');
+      label(W/2, H/2, H*0.47, 'middle');
+      return {P, w:W};
+    }
+    if(sh==='thin' || sh==='blocks'){
+      const W=n(300*k), H=n(30*k), extra = s.label ? n(58*k) : 0, SW=n(W+extra);
+      if(sh==='thin'){
+        const t=n(H*0.3), y=n((H-t)/2), rx=n(t/2);
+        lit(`<svg xmlns="http://www.w3.org/2000/svg" width="${SW}" height="${H}">`);
+        lit(`<rect y="${y}" width="${W}" height="${t}" rx="${rx}" fill="${s.track}"/>`);
+        lit(`<rect y="${y}" width="`); ex(`ROUND(${V} * ${W})`, p=>Math.round(p/100*W)); lit(`" height="${t}" rx="${rx}" fill="`); P.push(col); lit('"/>');
       } else {
-        const lines = rest.map(x=>`    ${V} >= ${+(x.from/100).toFixed(4)}, "${enc(x.color)}",`);
-        lines.push(`    TRUE, "${enc(s.steps[0].color)}"`);
-        L.push(`IFS(\n${lines.join('\n')}\n  ),`);
+        const N=10, gap=n(4*k), seg=n((W-gap*(N-1))/N), stepW=n(seg+gap);
+        let m='';
+        for(let i=0;i<N;i++) m+=`<rect x="${n(i*stepW)}" width="${seg}" height="${H}" rx="${n(3*k)}" fill="white"/>`;
+        lit(`<svg xmlns="http://www.w3.org/2000/svg" width="${SW}" height="${H}">`);
+        lit(`<defs><mask id="m">${m}</mask></defs>`);
+        lit(`<g mask="url(#m)"><rect width="${W}" height="${H}" fill="${s.track}"/>`);
+        lit('<rect width="'); ex(`FLOOR(${V} * ${N}) * ${stepW}`, p=>n(Math.floor(p/100*N+1e-9)*stepW)); lit(`" height="${H}" fill="`); P.push(col); lit('"/></g>');
       }
-      L.push(`"""/>",`);
-    } else {
-      L.push(`"<rect width=""", ROUND(${V} * ${s.w}), """ height=""${s.h}"" rx=""${s.rx}"" fill=""${enc(s.c0)}""/>",`);
+      label(W+8*k, H/2, H*0.47, 'start');
+      return {P, w:SW};
     }
-    if(s.label){
-      L.push(`"<text x=""${s.w/2}"" y=""${s.h/2}"" dominant-baseline=""central"" text-anchor=""middle"" font-family=""Arial"" font-size=""${s.fs}"" font-weight=""bold"" fill=""${enc(s.tc)}"">", ROUND(${V} * 100), "%25</text>",`);
+    if(sh==='ring'){
+      const D=n(100*k), sw=n(D*0.12), r=n((D-sw)/2), c=n(D/2);
+      lit(`<svg xmlns="http://www.w3.org/2000/svg" width="${D}" height="${D}">`);
+      lit(`<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${s.track}" stroke-width="${sw}"/>`);
+      lit(`<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke-width="${sw}" pathLength="100" transform="rotate(-90 ${c} ${c})" stroke-dasharray="`);
+      ex(`ROUND(${V} * 100)`, p=>p); lit(' 100" stroke="'); P.push(col); lit('"/>');
+      label(c, c, D*0.22, 'middle');
+      return {P, w:D};
     }
-    L.push(`"</svg>"`);
-    return 'CONCATENATE(\n  ' + L.join('\n  ') + '\n)';
+    const D=n(160*k), sw=n(D*0.12), r=n((D-sw)/2), cy=n(D/2), H=n(D/2+sw/2);
+    const d=`M ${n(sw/2)} ${cy} A ${r} ${r} 0 0 1 ${n(D-sw/2)} ${cy}`;
+    lit(`<svg xmlns="http://www.w3.org/2000/svg" width="${D}" height="${H}">`);
+    lit(`<path d="${d}" fill="none" stroke="${s.track}" stroke-width="${sw}"/>`);
+    lit(`<path d="${d}" fill="none" stroke-width="${sw}" pathLength="100" stroke-dasharray="`);
+    ex(`ROUND(${V} * 100)`, p=>p); lit(' 100" stroke="'); P.push(col); lit('"/>');
+    label(D/2, cy-D*0.1, D*0.17, 'middle');
+    return {P, w:D};
+  }
+
+  const litF = x => '"' + x.replace(/%/g,'%25').replace(/#/g,'%23').replace(/"/g,'""') + '"';
+
+  function formula(s){
+    const {P} = parts(s);
+    const args = P.map((t,i)=> t.lit!==undefined ? (i===0 ? '"data:image/svg+xml;utf8,' + litF(t.lit).slice(1) : litF(t.lit)) : t.f);
+    args.push('"</svg>"');
+    return 'CONCATENATE(\n  ' + args.join(',\n  ') + '\n)';
   }
 
   function svgFor(s, pct){
-    const fill = s.mode==='auto' ? stepColor(s.steps, pct) : s.c0;
-    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${s.w}" height="${s.h}">`+
-      `<rect width="${s.w}" height="${s.h}" rx="${s.rx}" fill="${s.track}"/>`+
-      `<rect width="${Math.round(pct/100*s.w)}" height="${s.h}" rx="${s.rx}" fill="${fill}"/>`;
-    if(s.label) svg += `<text x="${s.w/2}" y="${s.h/2}" dominant-baseline="central" text-anchor="middle" font-family="Arial" font-size="${s.fs}" font-weight="bold" fill="${s.tc}">${pct}%</text>`;
-    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg + '</svg>');
+    const {P} = parts(s);
+    const svg = P.map(t=> t.lit!==undefined ? t.lit : t.js(pct)).join('') + '</svg>';
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
   }
 
   function renderBar(){
-    const s = settings();
+    const s = settings(), w = parts(s).w;
     $('singleBox').hidden = s.mode==='auto';
     $('stepsBox').hidden = s.mode!=='auto';
-    const t=+$('test').value; $('testOut').textContent=t+'%'; $('mainImg').src=svgFor(s,t); $('mainImg').width=s.w;
     $('textBox').hidden = !s.label;
+    const t=+$('test').value; $('testOut').textContent=t+'%'; $('mainImg').src=svgFor(s,t); $('mainImg').width=w;
     document.querySelectorAll('.picker').forEach(el=>{ el.querySelector('code').textContent = el.querySelector('input').value.toUpperCase(); });
-    $('stage').innerHTML = [25,60,100].map(p=>`<img width="${s.w}" alt="Bar at ${p} percent" src="${svgFor(s,p)}">`).join('');
+    $('stage').className = 'stage' + ((s.shape==='ring'||s.shape==='gauge') ? ' row' : '');
+    $('stage').innerHTML = [25,60,100].map(p=>`<img width="${w}" alt="Progress at ${p} percent" src="${svgFor(s,p)}">`).join('');
     const f = formula(s);
     $('barCode').dataset.raw = f;
     $('barCode').innerHTML = highlight(f);
