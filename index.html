@@ -36,7 +36,12 @@ h1{font-size:26px;line-height:1.2;margin:0;font-weight:700;letter-spacing:-.01em
 label{display:grid;gap:5px;font-size:13px;font-weight:500}
 .hint{font-weight:400;color:var(--muted);font-size:12px;margin:0}
 input,select{font:inherit;font-size:14px;width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--ink)}
-input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.col-row{grid-column:1/-1;display:grid;gap:5px}
+.col-line{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.col-line label{flex:1 1 240px}
+.coffee{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:8px;background:#ffc439;border:1px solid #e0a800;color:#111;font-weight:600;font-size:14px;text-decoration:none;white-space:nowrap}
+.coffee:hover{background:#ffb300}
 .stage{background:var(--field);border:1px dashed var(--line);border-radius:10px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:12px}
 .stage.row{flex-direction:row;flex-wrap:wrap;justify-content:center;gap:20px}
 .stage img{display:block;max-width:100%;height:auto}
@@ -79,10 +84,15 @@ h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute
   <section class="card">
     <h2>Settings</h2>
     <div class="fields">
-      <label style="grid-column:1/-1">Progress column name (Decimal type)
-        <input type="text" id="col" placeholder="e.g. Progress" value="Progress">
+      <div class="col-row">
+        <div class="col-line">
+          <label>Progress column name (Decimal type)
+            <input type="text" id="col" placeholder="e.g. Progress" value="Progress">
+          </label>
+          <a class="coffee" href="https://www.paypal.com/donate/?business=joemarie.tayactac1%40gmail.com&amp;no_recurring=0&amp;item_name=Buy+a+coffee+for+the+developer&amp;currency_code=USD" target="_blank" rel="noopener">☕ Buy the developer a coffee</a>
+        </div>
         <span class="hint">The Decimal column that holds the progress, from 0 to 1 (0.75 = 75%).</span>
-      </label>
+      </div>
       <label>Color style
         <select id="mode">
           <option value="auto">Changes with progress</option>
